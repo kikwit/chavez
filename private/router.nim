@@ -1,10 +1,11 @@
-import asyncdispatch, asynchttpserver, nre, strutils
+import asyncdispatch, asynchttpserver, nre, options, sequtils, strutils, tables
 
 type 
-    Route* = ref object
+    Route = ref object of RootObj
         callback*: proc (request: Request): Future[void] {.closure.}
         keys*: seq[string]
         methods*: seq[string]
+        params: Table[string, string]
         routePathNoKeys*: string
         urlPattern*: RegEx
         
@@ -19,9 +20,6 @@ let
 proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
 
     var routePath = routePath
-
-    if isNilOrWhiteSpace(routePath): 
-        return nil
 
     if not startsWith(routePath, pathSeparator): 
         routePath = pathSeparator & routePath
@@ -58,7 +56,7 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
         pattern = re("(?i)" & patternString)
 
         if len(keys) == 0:
-            routePathNoKeys = toLower(routePath)
+            routePathNoKeys = toLowerAscii(routePath)
 
     new(result)
     
@@ -67,5 +65,43 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
 
     if not isNilOrWhiteSpace(routePathNoKeys):
         result.routePathNoKeys = routePathNoKeys
+
+
+proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, strict: bool): Route =
+
+    let 
+        reqMethod = toLowerAscii($request.reqMethod)
+    
+    var
+        match: Option[RegexMatch]
+        params = initTable[string, string]()
+        reqPath = request.url.path
+        reqPathLower: string
+
+    if not strict: 
+        reqPath = strip(reqPath, leading = false, chars = { '/' })
+
+    reqPathLower = toLowerAscii(reqPath)
+
+    for route in routeTable:
+
+        if reqMethod notin route.methods: continue
+
+        if len(route.keys) > 0:
+
+            match = find(reqPath, route.urlPattern)
+
+            if isNone(match): continue
+
+            for key in route.keys:
+                params[key] = match.get().captures[key]            
+
+        elif route.routePathNoKeys != reqPathLower: continue
+  
+        new(result)
+
+        deepCopy(result, route)
+
+        result.params = params
         
-        
+        break
