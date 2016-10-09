@@ -32,29 +32,23 @@ template post*(urlPattern: string, request: untyped, body: untyped) =
 
         route(urlPattern, @["post"], callback)
 
-proc cb(req: Request) {.async.} =
+proc cb(request: Request) {.async.} =
     
-    let reqMethod = toLowerAscii($req.reqMethod)
-    let reqPath = req.url.path
-    
-    var routes = routeTable.filter do (route: Route) -> bool:
-        isSome(reqPath.find(route.urlPattern)) and contains(route.methods, reqMethod)
+    var route = findRoute(request, routeTable, caseSensitive = false, strict = false)
 
-    if len(routes) == 0: 
-        await req.respond(Http404, $Http404)
+    if isNil(route): 
+        await request.respond(Http404, $Http404)
         return
 
-    await routes[0].callback(req)
+    await route.callback(request)
     
-proc respond*(req: Request; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
+proc respond*(request: Request; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
 
-    respond(req, code, content, headers)
+    respond(request, code, content, headers)
 
 proc startServer*(port: Port = Port(3000), address: string = ""): Future[void] =
 
     var server = newAsyncHttpServer()
    
     waitFor server.serve(port = port, callback = cb, address = address)
-    
-    
     
