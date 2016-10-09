@@ -1,7 +1,7 @@
 import asyncdispatch, asynchttpserver, nre, options, sequtils, strutils, tables
 
 type 
-    Route = ref object of RootObj
+    Route* = ref object of RootObj
         callback*: proc (request: Request): Future[void] {.closure.}
         keys*: seq[string]
         methods*: seq[string]
