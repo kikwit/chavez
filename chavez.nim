@@ -1,50 +1,52 @@
 import asyncdispatch, asynchttpserver, httpcore
-import nre, options, sequtils, strutils
-import private/router
+import nre, options, sequtils, strtabs, strutils
+import private/router, private/types
 
 export asynchttpserver, asyncdispatch, httpcore
 
 var 
     routeTable = newSeq[Route]()
 
-proc route*(urlPattern: string, methods: seq[string], callback: proc (request: Request): Future[void]) = 
+proc route*(urlPattern: string, methods: seq[string], handler: RequestHandler) = 
 
     var route = parseRoute(urlPattern, caseSensitive = false, strict = false)
 
-    route.callback = callback
+    route.requestHandler = handler
     route.methods = methods
 
     routeTable.add(route)
 
-template get*(urlPattern: string, request: untyped, body: untyped) = 
+template get*(urlPattern: string, context: untyped, body: untyped) = 
 
     block:
-        var callback = proc (request: Request): Future[void] =
+        var handler = proc (context: Context): Future[void] =
              body
 
-        route(urlPattern, @["get"], callback)
+        route(urlPattern, @["get"], handler)
 
-template post*(urlPattern: string, request: untyped, body: untyped) = 
+template post*(urlPattern: string, context: untyped, body: untyped) = 
 
     block:
-        var callback = proc (request: Request): Future[void] =
+        var handler = proc (context: Context): Future[void] =
              body
 
-        route(urlPattern, @["post"], callback)
+        route(urlPattern, @["post"], handler)
+    
+proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
+
+    respond(context.request, code, content, headers)
 
 proc cb(request: Request) {.async.} =
     
-    var route = findRoute(request, routeTable, caseSensitive = false, strict = false)
+    var routeMatch = findRoute(request, routeTable, caseSensitive = false, strict = false)
 
-    if isNil(route): 
+    if isNil(routeMatch): 
         await request.respond(Http404, $Http404)
         return
 
-    await route.callback(request)
-    
-proc respond*(request: Request; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
+    var context = Context(request: request, params: routeMatch.params)
 
-    respond(request, code, content, headers)
+    await routeMatch.requestHandler(context)    
 
 proc startServer*(port: Port = Port(3000), address: string = ""): Future[void] =
 

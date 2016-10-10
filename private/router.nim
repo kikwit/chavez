@@ -1,14 +1,19 @@
-import asyncdispatch, asynchttpserver, nre, options, sequtils, strutils, tables
+import asyncdispatch, asynchttpserver, nre, options, sequtils, strutils, strtabs
+import types
 
 type 
+    
     Route* = object of RootObj
-        callback*: proc (request: Request): Future[void] {.closure.}
+        requestHandler*: RequestHandler
         keys*: seq[string]
         methods*: seq[string]
-        params*: Table[string, string]
         routePathNoKeys*: string
         urlPattern*: string
-        
+
+    RouteMatch* = ref object
+        requestHandler*: RequestHandler
+        params*: StringTableRef
+
 const
     pathSeparator = '/'
     defaultPathPattern* = "[^<:/]+"
@@ -63,14 +68,14 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
         result.routePathNoKeys = routePathNoKeys
 
 
-proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, strict: bool): ref Route =
+proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, strict: bool): RouteMatch =
 
     let 
         reqMethod = toLowerAscii($request.reqMethod)
     
     var
         match: Option[RegexMatch]
-        params = initTable[string, string]()
+        params = newStringTable(modeCaseInsensitive)
         reqPath = request.url.path
         reqPathLower: string
 
@@ -94,13 +99,6 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
         elif route.routePathNoKeys != reqPathLower: continue
   
-        new(result)
+        result = RouteMatch(requestHandler: route.requestHandler, params: params)
 
-        result.callback = route.callback
-        result.keys = route.keys
-        result.methods= route.methods
-        result.params = params
-        result.routePathNoKeys = route.routePathNoKeys
-        result.urlPattern = route.urlPattern
-        
         break
