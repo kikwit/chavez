@@ -5,7 +5,7 @@ type
         callback*: proc (request: Request): Future[void] {.closure.}
         keys*: seq[string]
         methods*: seq[string]
-        params: Table[string, string]
+        params*: Table[string, string]
         routePathNoKeys*: string
         urlPattern*: string
         
@@ -100,7 +100,6 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
         
         result.keys = route.keys
         result.methods = route.methods
-        result.params = route.params
         result.routePathNoKeys = route.routePathNoKeys
         result.urlPattern = route.urlPattern
 
