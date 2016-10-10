@@ -94,7 +94,7 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
             if isNone(match): continue
 
             for key in route.keys:
-                params[key] = match.get().captures[key]            
+                add(params, key, match.get().captures[key])            
 
         elif route.routePathNoKeys != reqPathLower: continue
   
