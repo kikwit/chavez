@@ -95,7 +95,8 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
         elif route.routePathNoKeys != reqPathLower: continue
   
         new(result)
-  
+
+        result.callback = route.callback
         result.keys = route.keys
         result.methods= route.methods
         result.params = params
