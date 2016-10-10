@@ -56,6 +56,8 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
         if len(keys) == 0:
             routePathNoKeys = toLowerAscii(routePath)
 
+    new(result)
+
     result.keys = keys
     result.urlPattern = pattern
 
