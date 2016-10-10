@@ -62,7 +62,7 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
         result.routePathNoKeys = routePathNoKeys
 
 
-proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, strict: bool): Route =
+proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, strict: bool): ref Route =
 
     let 
         reqMethod = toLowerAscii($request.reqMethod)
@@ -93,8 +93,12 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
         elif route.routePathNoKeys != reqPathLower: continue
   
-        result = route
-
+        new(result)
+  
+        result.keys = route.keys
+        result.methods= route.methods
         result.params = params
+        result.routePathNoKeys = route.routePathNoKeys
+        result.urlPattern = route.urlPattern
         
         break
