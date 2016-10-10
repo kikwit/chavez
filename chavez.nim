@@ -9,7 +9,7 @@ var
 
 proc route*(urlPattern: string, methods: seq[string], callback: proc (request: Request): Future[void]) = 
 
-    let route = parseRoute(urlPattern, caseSensitive = false, strict = false)
+    var route = parseRoute(urlPattern, caseSensitive = false, strict = false)
 
     route.callback = callback
     route.methods = methods
