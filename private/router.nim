@@ -1,7 +1,7 @@
 import asyncdispatch, asynchttpserver, nre, options, sequtils, strutils, tables
 
 type 
-    Route* = ref object of RootObj
+    Route* = object of RootObj
         callback*: proc (request: Request): Future[void] {.closure.}
         keys*: seq[string]
         methods*: seq[string]
@@ -56,10 +56,7 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
         if len(keys) == 0:
             routePathNoKeys = toLowerAscii(routePath)
 
-    new(result)
-
-    result.keys = keys
-    result.urlPattern = pattern
+    result = Route(keys = keys, urlPattern = pattern)
 
     if not isNilOrWhiteSpace(routePathNoKeys):
         result.routePathNoKeys = routePathNoKeys
@@ -96,12 +93,7 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
         elif route.routePathNoKeys != reqPathLower: continue
   
-        new(result)
-        
-        result.keys = route.keys
-        result.methods = route.methods
-        result.routePathNoKeys = route.routePathNoKeys
-        result.urlPattern = route.urlPattern
+        result = route
 
         result.params = params
         
