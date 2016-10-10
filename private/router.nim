@@ -7,7 +7,7 @@ type
         methods*: seq[string]
         params: Table[string, string]
         routePathNoKeys*: string
-        urlPattern*: RegEx
+        urlPattern*: string
         
 const
     pathSeparator = '/'
@@ -47,19 +47,15 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
     patternString = '^' & patternString & '$'
     
     var 
-        pattern: RegEx
+        pattern = patternString
         routePathNoKeys: string
 
-    if caseSensitive:
-        pattern = re(patternString)
-    else:
-        pattern = re("(?i)" & patternString)
+    if not caseSensitive:
+        pattern = "(?i)" & patternString
 
         if len(keys) == 0:
             routePathNoKeys = toLowerAscii(routePath)
 
-    new(result)
-    
     result.keys = keys
     result.urlPattern = pattern
 
@@ -89,7 +85,7 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
         if len(route.keys) > 0:
 
-            match = find(reqPath, route.urlPattern)
+            match = find(reqPath, re(route.urlPattern))
 
             if isNone(match): continue
 
@@ -99,8 +95,12 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
         elif route.routePathNoKeys != reqPathLower: continue
   
         new(result)
-
-        deepCopy(result, route)
+        
+        result.keys = route.keys
+        result.methods = route.methods
+        result.params = route.params
+        result.routePathNoKeys = route.routePathNoKeys
+        result.urlPattern = route.urlPattern
 
         result.params = params
         
