@@ -7,7 +7,7 @@ export asynchttpserver, asyncdispatch, httpcore
 var 
     routeTable = newSeq[Route]()
 
-proc route*(urlPattern: string, methods: seq[string], handler: RequestHandler) = 
+proc route*(urlPattern: string, methods: set[HttpMethod], handler: RequestHandler) = 
 
     var route = parseRoute(urlPattern, caseSensitive = false, strict = false)
 
@@ -22,7 +22,7 @@ template get*(urlPattern: string, context: untyped, body: untyped) =
         var handler = proc (context: Context): Future[void] =
              body
 
-        route(urlPattern, @["get"], handler)
+        route(urlPattern, { HttpGet }, handler)
 
 template post*(urlPattern: string, context: untyped, body: untyped) = 
 
@@ -30,7 +30,7 @@ template post*(urlPattern: string, context: untyped, body: untyped) =
         var handler = proc (context: Context): Future[void] =
              body
 
-        route(urlPattern, @["post"], handler)
+        route(urlPattern, { HttpPost }, handler)
     
 proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
 
