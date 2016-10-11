@@ -83,13 +83,15 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
     for route in routeTable:
 
-        if request.reqMethod notin route.httpMethods: continue
+        if request.reqMethod notin route.httpMethods: 
+            continue
 
         if len(route.keys) > 0:
 
             match = find(reqPath, re(route.urlPattern))
 
-            if isNone(match): continue
+            if isNone(match): 
+                continue
 
             for index, key in route.keys:
                 params[key] = match.get().captures[index]           

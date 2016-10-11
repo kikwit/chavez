@@ -1,4 +1,4 @@
-import asyncdispatch, asynchttpserver, httpcore
+import asyncdispatch, asynchttpserver, httpcore, json
 import nre, options, sequtils, strtabs, strutils
 import private/router, private/types
 
