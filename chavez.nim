@@ -2,7 +2,7 @@ import asyncdispatch, asynchttpserver, httpcore, json
 import nre, options, sequtils, strtabs, strutils
 import private/router, private/types
 
-export asynchttpserver, asyncdispatch, httpcore, json
+export asynchttpserver, asyncdispatch, httpcore, json, strtabs
 
 const
     ContentType = "content-type"
