@@ -1,4 +1,4 @@
-import asyncdispatch, asynchttpserver, nre, options, sequtils, strutils, strtabs
+import asyncdispatch, asynchttpserver, httpcore, nre, options, sequtils, strutils, strtabs
 import types
 
 type 
@@ -6,7 +6,7 @@ type
     Route* = object of RootObj
         requestHandler*: RequestHandler
         keys*: seq[string]
-        methods*: seq[string]
+        methods*: set[HttpMethod]
         routePathNoKeys*: string
         urlPattern*: string
 
@@ -70,9 +70,6 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
 
 proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, strict: bool): RouteMatch =
 
-    let 
-        reqMethod = toLowerAscii($request.reqMethod)
-    
     var
         match: Option[RegexMatch]
         params = newStringTable(modeCaseInsensitive)
@@ -86,7 +83,7 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
     for route in routeTable:
 
-        if reqMethod notin route.methods: continue
+        if request.reqMethod notin route.methods: continue
 
         if len(route.keys) > 0:
 
