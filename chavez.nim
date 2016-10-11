@@ -2,10 +2,23 @@ import asyncdispatch, asynchttpserver, httpcore
 import nre, options, sequtils, strtabs, strutils
 import private/router, private/types
 
-export asynchttpserver, asyncdispatch, httpcore
+export asynchttpserver, asyncdispatch, httpcore, json
 
+const
+    ContentType = "content-type"
+    
 var 
     routeTable = newSeq[Route]()
+    
+proc setHeader*(headers: HttpHeaders; name, val: string; replace: false): HttpHeaders = 
+
+    result = headers
+
+    if isNil(result):
+        result = newHttpHeaders()
+
+    if replace or not hasKey(result, name)
+        result[name] = val
 
 proc route*(urlPattern: string, httpMethods: set[HttpMethod], handler: RequestHandler) = 
 
@@ -29,10 +42,29 @@ template post*(urlPattern: string, context: untyped, body: untyped) =
 
     route(urlPattern, HttpPost) do (context: Context) -> Future[void]:
         body
-    
+
 proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
 
-    respond(context.request, code, content, headers)
+    let hdrs = setHeader(headers, ContentType, "text/plain")
+
+    respond(context.request, code, content, hdrs)
+
+proc sendJson*(context: Context; content: string; escape: bool = false; code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
+
+    let hdrs = setHeader(headers, ContentType, "application/json", true)
+
+    var s = content
+
+    if escape:
+        s = escapeJson(s)
+
+    send(context, s, code, hdrs)
+
+proc sendJson*(context: Context; node: JsonNode; format: false, code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
+
+    let content = if format: pretty(node) else: $node
+
+    sendJson(context = context, content = content, code = code, headers = headers)
 
 proc cb(request: Request) {.async.} =
     
