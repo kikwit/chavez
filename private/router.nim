@@ -6,7 +6,7 @@ type
     Route* = object of RootObj
         requestHandler*: RequestHandler
         keys*: seq[string]
-        methods*: set[HttpMethod]
+        httpMethods*: set[HttpMethod]
         routePathNoKeys*: string
         urlPattern*: string
 
@@ -83,7 +83,7 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
     for route in routeTable:
 
-        if request.reqMethod notin route.methods: continue
+        if request.reqMethod notin route.httpMethods: continue
 
         if len(route.keys) > 0:
 
