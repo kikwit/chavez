@@ -15,22 +15,20 @@ proc route*(urlPattern: string, methods: set[HttpMethod], handler: RequestHandle
     route.methods = methods
 
     routeTable.add(route)
+    
+proc route*(urlPattern: string, method: HttpMethod, handler: RequestHandler) = 
+
+    route*(urlPattern: string, { method }, handler)
 
 template get*(urlPattern: string, context: untyped, body: untyped) = 
 
-    block:
-        var handler = proc (context: Context): Future[void] =
-             body
-
-        route(urlPattern, { HttpGet }, handler)
+    route(urlPattern, HttpGet) do (context: Context) -> Future[void]:
+        body
 
 template post*(urlPattern: string, context: untyped, body: untyped) = 
 
-    block:
-        var handler = proc (context: Context): Future[void] =
-             body
-
-        route(urlPattern, { HttpPost }, handler)
+    route(urlPattern, HttpPost) do (context: Context) -> Future[void]:
+        body
     
 proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
 
