@@ -10,14 +10,14 @@ const
 var 
     routeTable = newSeq[Route]()
     
-proc setHeader*(headers: HttpHeaders; name, val: string; replace: false): HttpHeaders = 
+proc setHeader*(headers: HttpHeaders; name, val: string; replace = false): HttpHeaders = 
 
     result = headers
 
     if isNil(result):
         result = newHttpHeaders()
 
-    if replace or not hasKey(result, name)
+    if replace or not hasKey(result, name):
         result[name] = val
 
 proc route*(urlPattern: string, httpMethods: set[HttpMethod], handler: RequestHandler) = 
@@ -31,7 +31,7 @@ proc route*(urlPattern: string, httpMethods: set[HttpMethod], handler: RequestHa
     
 proc route*(urlPattern: string, httpMethod: HttpMethod, handler: RequestHandler) = 
 
-    route*(urlPattern: string, { httpMethod }, handler)
+    route(urlPattern, { httpMethod }, handler)
 
 template get*(urlPattern: string, context: untyped, body: untyped) = 
 
@@ -60,7 +60,7 @@ proc sendJson*(context: Context; content: string; escape: bool = false; code: Ht
 
     send(context, s, code, hdrs)
 
-proc sendJson*(context: Context; node: JsonNode; format: false, code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
+proc sendJson*(context: Context; node: JsonNode; format = false, code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
 
     let content = if format: pretty(node) else: $node
 
