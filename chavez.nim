@@ -7,18 +7,18 @@ export asynchttpserver, asyncdispatch, httpcore
 var 
     routeTable = newSeq[Route]()
 
-proc route*(urlPattern: string, methods: set[HttpMethod], handler: RequestHandler) = 
+proc route*(urlPattern: string, httpMethods: set[HttpMethod], handler: RequestHandler) = 
 
     var route = parseRoute(urlPattern, caseSensitive = false, strict = false)
 
     route.requestHandler = handler
-    route.methods = methods
+    route.httpMethods = httpMethods
 
     routeTable.add(route)
     
-proc route*(urlPattern: string, method: HttpMethod, handler: RequestHandler) = 
+proc route*(urlPattern: string, httpMethod: HttpMethod, handler: RequestHandler) = 
 
-    route*(urlPattern: string, { method }, handler)
+    route*(urlPattern: string, { httpMethod }, handler)
 
 template get*(urlPattern: string, context: untyped, body: untyped) = 
 
