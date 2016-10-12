@@ -1,4 +1,4 @@
-import json, parsecfg, sequtils, streams
+import algorithm, json, parsecfg, sequtils, streams
 
 type
     Configuration* = ref object of RootObj
@@ -28,15 +28,16 @@ method get*(settings: Settings, keys: varargs[string]): JsonNode {.base.} =
     discard
 
 method get*(settings: ConfigSettings, keys: varargs[string]): JsonNode =
-    
-    if len(keys) == 0:
-        return newJNull()
+    new(result)
+
+    result = newJNull()
+
+    if len(keys) != 2:
+        return
 
     var val = settings.config.getSectionValue(keys[0], keys[1])
 
-    if val == "":
-        result = newJNull()
-    else:
+    if val != "":
         result = newJString(val)
 
 method get*(settings: JsonSettings, keys: varargs[string]): JsonNode =
@@ -152,7 +153,9 @@ proc addJsonString*(configuration: Configuration, buffer: string) =
 proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
     new(result)
 
-    for settings in configuration.settings:
+    result = newJNull()
+
+    for settings in reversed(configuration.settings):
 
         result = get(settings, keys)
 
