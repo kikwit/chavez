@@ -1,4 +1,5 @@
 import asynchttpserver, asyncdispatch, strtabs
+import configuration
 
 type
     RequestHandler* = proc (context: Context): Future[void] {.closure.}
@@ -6,5 +7,4 @@ type
     Context* = ref object
         request*: Request
         params*: StringTableRef
-
-    Settings* = distinct JsonNode
+        config*: Configuration
