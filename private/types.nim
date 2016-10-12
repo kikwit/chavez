@@ -6,3 +6,5 @@ type
     Context* = ref object
         request*: Request
         params*: StringTableRef
+
+    Settings* = distinct JsonNode
