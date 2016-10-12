@@ -34,15 +34,50 @@ proc route*(urlPattern: string, httpMethod: HttpMethod, handler: RequestHandler)
 
     route(urlPattern, { httpMethod }, handler)
 
+template connect*(urlPattern: string, context: untyped, body: untyped) = 
+
+    route(urlPattern, HttpConnect) do (context: Context) -> Future[void]:
+        body
+        
+template delete*(urlPattern: string, context: untyped, body: untyped) = 
+
+    route(urlPattern, HttpDelete) do (context: Context) -> Future[void]:
+        body
+        
+template head*(urlPattern: string, context: untyped, body: untyped) = 
+
+    route(urlPattern, HttpHead) do (context: Context) -> Future[void]:
+        body             
+        
 template get*(urlPattern: string, context: untyped, body: untyped) = 
 
     route(urlPattern, HttpGet) do (context: Context) -> Future[void]:
         body
+        
+template options*(urlPattern: string, context: untyped, body: untyped) = 
 
+    route(urlPattern, HttpOptions) do (context: Context) -> Future[void]:
+        body        
+
+template patch*(urlPattern: string, context: untyped, body: untyped) = 
+
+    route(urlPattern, HttpPatch) do (context: Context) -> Future[void]:
+        body
+        
 template post*(urlPattern: string, context: untyped, body: untyped) = 
 
     route(urlPattern, HttpPost) do (context: Context) -> Future[void]:
         body
+            
+template put*(urlPattern: string, context: untyped, body: untyped) = 
+
+    route(urlPattern, HttpPut) do (context: Context) -> Future[void]:
+        body   
+        
+template trace*(urlPattern: string, context: untyped, body: untyped) = 
+
+    route(urlPattern, HttpTrace) do (context: Context) -> Future[void]:
+        body        
         
 proc redirect*(context: Context; location: string; code: HttpCode = Http303): Future[void] =
 
