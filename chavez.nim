@@ -145,7 +145,7 @@ proc startServer*(configuration: Configuration = nil): Future[void] =
 
     var 
         port = getNum(get(config, "server", "port"), DefaultPort)
-        address = getStr(get(config, "server", "adress"), DefaultAddress)
+        address = getStr(get(config, "server", "address"), DefaultAddress)
         server = newAsyncHttpServer()
         
     waitFor server.serve(port = Port(port), callback = cb, address = address)
