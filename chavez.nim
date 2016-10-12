@@ -131,7 +131,7 @@ proc cb(request: Request) {.async.} =
         
     await routeMatch.requestHandler(context)    
 
-proc startServer*(configuration: Configuration): Future[void] =
+proc startServer*(configuration: Configuration = nil): Future[void] =
 
     config = configuration
 
