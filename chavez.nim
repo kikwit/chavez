@@ -22,7 +22,8 @@ proc setHeader*(headers: HttpHeaders; name, val: string; replace = false): HttpH
 
 proc route*(urlPattern: string, httpMethods: set[HttpMethod], handler: RequestHandler) = 
 
-    var route = parseRoute(urlPattern, caseSensitive = false, strict = false)
+    var 
+        route = parseRoute(urlPattern, caseSensitive = false, strict = false)
 
     route.requestHandler = handler
     route.httpMethods = httpMethods
@@ -42,18 +43,27 @@ template post*(urlPattern: string, context: untyped, body: untyped) =
 
     route(urlPattern, HttpPost) do (context: Context) -> Future[void]:
         body
+        
+proc redirect*(context: Context; location: string; code: HttpCode = Http303): Future[void] =
+
+    let 
+        hdrs = setHeader(headers, Location, location)
+        
+    sendHeaders(context.request, headers)        
 
 proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
 
-    let hdrs = setHeader(headers, ContentType, "text/plain")
-
+    let 
+        hdrs = setHeader(headers, ContentType, "text/plain")
+        
     respond(context.request, code, content, hdrs)
 
 proc sendJson*(context: Context; content: string; escape: bool = false; code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
 
-    let hdrs = setHeader(headers, ContentType, "application/json", true)
-
-    var s = content
+    let 
+        hdrs = setHeader(headers, ContentType, "application/json", true)
+    var 
+        s = content
 
     if escape:
         s = escapeJson(s)
@@ -62,8 +72,9 @@ proc sendJson*(context: Context; content: string; escape: bool = false; code: Ht
 
 proc sendJson*(context: Context; node: JsonNode; format = false, code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
 
-    let content = if format: pretty(node) else: $node
-
+    let 
+        content = if format: pretty(node) else: $node
+        
     sendJson(context = context, content = content, code = code, headers = headers)
 
 proc cb(request: Request) {.async.} =
@@ -74,13 +85,15 @@ proc cb(request: Request) {.async.} =
         await request.respond(Http404, $Http404)
         return
 
-    var context = Context(request: request, params: routeMatch.params)
-
+    var 
+        context = Context(request: request, params: routeMatch.params)
+        
     await routeMatch.requestHandler(context)    
 
 proc startServer*(port: Port = Port(3000), address: string = ""): Future[void] =
 
-    var server = newAsyncHttpServer()
-   
+    var 
+        server = newAsyncHttpServer()
+        
     waitFor server.serve(port = port, callback = cb, address = address)
     
