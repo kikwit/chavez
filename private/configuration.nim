@@ -1,4 +1,4 @@
-import json, nativesockets, parsecfg, sequtils, streams
+import json, parsecfg, sequtils, streams
 
 type
     Configuration* = ref object of RootObj
@@ -24,19 +24,6 @@ method `$`*(settings: JsonSettings): string =
 
     result = $settings.node
 
-proc newConfiguration*(settings: seq[Settings]): Configuration =
-    new(result)
-
-    result.settings = settings
-
-proc add*(configuration: Configuration, settings: Settings) =
-
-    configuration.add(settings)
-
-proc `$`*(configuration: Configuration): string =
-
-    result = $configuration.settings
-
 proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
     new(result)
   
@@ -61,12 +48,12 @@ proc `{}=`*(settings: JsonSettings; keys: varargs[string]; value: JsonSettings) 
 
     settings.node{keys} = value.node
 
-proc fromJson*(buffer: string): JsonSettings = 
+proc fromJsonString*(buffer: string): JsonSettings = 
     new(result)
 
     result.node = json.parseJson(buffer)
 
-proc fromJson*(s: Stream; filename: string): JsonSettings = 
+proc fromJsonStream*(s: Stream; filename: string): JsonSettings = 
     new(result)
 
     result.node = json.parseJson(s, filename)
@@ -76,7 +63,7 @@ proc fromJsonFile*(filename: string): JsonSettings =
 
     result.node = json.parseFile(filename)
 
-proc fromJson*(node: JsonNode): JsonSettings = 
+proc fromJsonNode*(node: JsonNode): JsonSettings = 
     new(result)
 
     result.node = node
@@ -90,3 +77,52 @@ proc fromConfig*(config: Config): ConfigSettings =
     new(result)
 
     result.config = config
+
+proc newConfiguration*(settings: seq[Settings] = @[]): Configuration =
+    new(result)
+
+    result.settings = settings
+
+proc `$`*(configuration: Configuration): string =
+
+    result = $configuration.settings
+
+proc add*(configuration: Configuration, settings: Settings) =
+
+    add(configuration.settings, settings)
+
+proc addConfig*(configuration: Configuration, config: Config) =
+
+    let settings = fromConfig(config)
+
+    add(configuration, settings)    
+
+proc addConfigFile*(configuration: Configuration, filename: string) =
+
+    let settings = fromConfigFile(filename)
+
+    add(configuration, settings)  
+
+proc addJsonFile*(configuration: Configuration, filename: string) =
+
+    let settings = fromJsonFile(filename)
+
+    add(configuration, settings)    
+
+proc addJsonNode*(configuration: Configuration, node: JsonNode) =
+
+    let settings = fromJsonNode(node)
+
+    add(configuration, settings) 
+
+proc addJsonStream*(configuration: Configuration, s: Stream; filename: string) =
+
+    let settings = fromJsonStream(s, filename)
+
+    add(configuration, settings)
+
+proc addJsonString*(configuration: Configuration, buffer: string) =
+
+    let settings = fromJsonString(buffer)
+
+    add(configuration, settings)    
