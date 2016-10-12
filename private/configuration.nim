@@ -24,6 +24,25 @@ method `$`*(settings: JsonSettings): string =
 
     result = $settings.node
 
+method get*(settings: Settings, keys: varargs[string]): JsonNode {.base.} =
+    discard
+
+method get*(settings: ConfigSettings, keys: varargs[string]): JsonNode =
+    
+    if len(keys) == 0:
+        return newJNull()
+
+    var val = settings.config.getSectionValue(keys[0], keys[1])
+
+    if val == "":
+        result = newJNull()
+    else:
+        result = newJString(val)
+
+method get*(settings: JsonSettings, keys: varargs[string]): JsonNode =
+    
+    result = settings.node{ keys }
+
 proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
     new(result)
   
@@ -32,7 +51,6 @@ proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
 proc hasKey*(settings: JsonSettings, key: string): bool =
 
     result = hasKey(settings.node, key)
-
 
 proc `[]=`*(settings: JsonSettings; key: string; val: JsonSettings) =
 
@@ -87,6 +105,10 @@ proc `$`*(configuration: Configuration): string =
 
     result = $configuration.settings
 
+proc add*(configuration: Configuration, config: Configuration) =
+
+    configuration.settings = concat(configuration.settings, config.settings)
+
 proc add*(configuration: Configuration, settings: Settings) =
 
     add(configuration.settings, settings)
@@ -125,4 +147,16 @@ proc addJsonString*(configuration: Configuration, buffer: string) =
 
     let settings = fromJsonString(buffer)
 
-    add(configuration, settings)    
+    add(configuration, settings)
+
+proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
+    new(result)
+
+    for settings in configuration.settings:
+
+        result = get(settings, keys)
+
+        if result.kind != JNull:
+            break
+
+

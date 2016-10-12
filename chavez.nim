@@ -5,10 +5,14 @@ import private/configuration, private/router, private/types
 export asynchttpserver, asyncdispatch, httpcore, json, strtabs
 
 const
+    DefaultEnvironment = "development"
+    DefaultPort = 3000
+    DefaultAddress = ""
     HdrContentType = "content-type"
     HdrLocation = "location"
     
 var 
+    defaultSettings: Settings = fromJsonNode(%*{ "environment": DefaultEnvironment, "server": { "port": DefaultPort, "address": DefaultAddress } })
     config: Configuration
     routeTable = newSeq[Route]()
     
@@ -120,7 +124,8 @@ proc sendJson*(context: Context; node: JsonNode; format = false, code: HttpCode 
 
 proc cb(request: Request) {.async.} =
     
-    var routeMatch = findRoute(request, routeTable, caseSensitive = false, strict = false)
+    var 
+        routeMatch = findRoute(request, routeTable, caseSensitive = false, strict = false)
 
     if isNil(routeMatch): 
         await request.respond(Http404, $Http404)
@@ -133,10 +138,15 @@ proc cb(request: Request) {.async.} =
 
 proc startServer*(configuration: Configuration = nil): Future[void] =
 
-    config = configuration
+    config = newConfiguration(@[defaultSettings])
+
+    if not isNil(configuration):
+        add(config, configuration)
 
     var 
+        port = getNum(get(config, "server", "port"), DefaultPort)
+        address = getStr(get(config, "server", "adress"), DefaultAddress)
         server = newAsyncHttpServer()
         
-    waitFor server.serve(port =Port(3000), callback = cb, address = "")
+    waitFor server.serve(port = Port(port), callback = cb, address = address)
     
