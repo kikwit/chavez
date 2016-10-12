@@ -1,5 +1,5 @@
 import asyncdispatch, asynchttpserver, httpcore, json
-import nre, options, sequtils, strtabs, strutils
+import nre, options, sequtils, strtabs, strutils, uri
 import private/router, private/types
 
 export asynchttpserver, asyncdispatch, httpcore, json, strtabs
@@ -49,7 +49,11 @@ proc redirect*(context: Context; location: string; code: HttpCode = Http303): Fu
     let 
         hdrs = setHeader(headers, Location, location)
         
-    sendHeaders(context.request, headers)        
+    sendHeaders(context.request, headers)    
+    
+proc redirect*(context: Context; url: uri; code: HttpCode = Http303): Future[void] =
+
+    redirect(context, $url, code)    
 
 proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
 
