@@ -28,7 +28,6 @@ method get*(settings: Settings, keys: varargs[string]): JsonNode {.base.} =
     discard
 
 method get*(settings: ConfigSettings, keys: varargs[string]): JsonNode =
-    new(result)
 
     result = newJNull()
 
@@ -41,8 +40,11 @@ method get*(settings: ConfigSettings, keys: varargs[string]): JsonNode =
         result = newJString(val)
 
 method get*(settings: JsonSettings, keys: varargs[string]): JsonNode =
-    
+
     result = settings.node{ keys }
+    
+    if isNil(result):
+        result = newJNull()
 
 proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
     new(result)
