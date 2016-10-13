@@ -1,10 +1,13 @@
-import algorithm, json, parsecfg, sequtils, streams
+import algorithm, json, parsecfg, parseopt2, sequtils, streams, tables
 
 type
     Configuration* = ref object of RootObj
         settings: seq[Settings]
 
     Settings* = ref object of RootObj   
+
+    CommandLineOptionsSettings* = ref object of Settings
+        options*: TableRef[string, seq[string]]
 
     ConfigSettings* = ref object of Settings
         config*: Config
@@ -13,8 +16,11 @@ type
         node*: JsonNode
 
 method `$`*(settings: Settings): string {.base.} =
-
     result = $settings
+
+method `$`*(settings: CommandLineOptionsSettings): string =
+
+    result = $settings.options
 
 method `$`*(settings: ConfigSettings): string =
 
@@ -26,6 +32,20 @@ method `$`*(settings: JsonSettings): string =
 
 method get*(settings: Settings, keys: varargs[string]): JsonNode {.base.} =
     discard
+
+method get*(settings: CommandLineOptionsSettings, keys: varargs[string]): JsonNode =
+
+    result = newJNull()
+
+    if len(keys) != 1 or not hasKey(settings.options, keys[0]):
+        return
+
+    var vals = settings.options[keys[0]]
+
+    if len(vals) == 0:
+        return
+
+    result = newJString(vals[^len(vals)])
 
 method get*(settings: ConfigSettings, keys: varargs[string]): JsonNode =
 
@@ -45,6 +65,48 @@ method get*(settings: JsonSettings, keys: varargs[string]): JsonNode =
     
     if isNil(result):
         result = newJNull()
+
+proc hasKey*(settings: CommandLineOptionsSettings, key: string): bool =
+
+    result = hasKey(settings.options, key)
+
+proc values*(settings: CommandLineOptionsSettings, key: string): seq[string] =
+    
+    result = getOrDefault(settings.options, key)
+
+proc value*(settings: CommandLineOptionsSettings, key: string): string =
+
+    let
+        vals = values(settings, key)
+
+    if not isNil(vals) and len(vals) > 0:
+        result = vals[^len(vals)]
+
+proc fromCommandLineOptions*(optResults: seq[GetoptResult]): Settings =
+
+    let
+        options = newTable[string, seq[string]]()
+
+    for kind, key, val in optResults:
+        case kind
+        of cmdLongOption, cmdShortOption:
+            if not hasKey(options, key):
+                options[key] = newSeq[string]()
+
+            add(options[key], val)
+        else: discard
+
+    result = CommandLineOptionsSettings(options: options)
+
+proc fromConfigFile*(filename: string): ConfigSettings =
+    new(result)
+
+    result.config = parsecfg.loadConfig(filename)
+
+proc fromConfig*(config: Config): ConfigSettings =
+    new(result)
+
+    result.config = config
 
 proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
     new(result)
@@ -116,6 +178,13 @@ proc add*(configuration: Configuration, settings: Settings) =
 
     add(configuration.settings, settings)
 
+proc addCommandLineOptions*(configuration: Configuration, options: seq[GetoptResult]) =
+    
+    let
+        settings = fromCommandLineOptions(options)
+    
+    add(configuration, settings)  
+
 proc addConfig*(configuration: Configuration, config: Config) =
 
     let settings = fromConfig(config)
@@ -163,5 +232,4 @@ proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
 
         if result.kind != JNull:
             break
-
 
