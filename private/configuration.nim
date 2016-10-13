@@ -1,4 +1,5 @@
-import algorithm, json, parsecfg, os, parseopt2, sequtils, streams, tables, strtabs
+import algorithm, json, parsecfg, os, parseopt2
+import sequtils, streams, strutils, strtabs, tables
 
 const
     EnvironmentVarHierarchySeparator* = "__"
@@ -78,7 +79,8 @@ method get*(settings: EnvironmentSettings, keys: varargs[string]): JsonNode =
         key = join(keys, sep = EnvironmentVarHierarchySeparator)
 
     if hasKey(settings.variables, key):
-        val = settings.variables[key]
+        let
+            val = settings.variables[key]
     
         if not isNil(val):
             result = newJString(val)
@@ -106,12 +108,12 @@ proc value*(settings: CommandLineOptionsSettings, key: string): string =
     if not isNil(vals) and len(vals) > 0:
         result = vals[^len(vals)]
 
-proc fromCommandLineOptions*(optResults: seq[GetoptResult]): Settings =
+proc fromCommandLineOptions*(optResults: seq[GetoptResult]): CommandLineOptionsSettings =
 
     let
         options = newTable[string, seq[string]]()
 
-    for kind, key, val in optResults:
+    for kind, key, val in items(optResults):
         case kind
         of cmdLongOption, cmdShortOption:
             if not hasKey(options, key):
@@ -141,15 +143,16 @@ proc value*(settings: EnvironmentSettings, key: string): string =
     if hasKey(settings, key):
         result = settings.variables[key]
 
-proc fromEnvironmentVariables*(prefix: string = nil, stripPrefix = true): Settings =
-
+proc fromEnvironmentVariables*(prefix: string = nil, stripPrefix = true): EnvironmentSettings =
+    new(result)
+    
     let
         variables = newStringTable(modeCaseInsensitive)
 
-    for name, val in envPair():
+    for name, val in envPairs():
         variables[name] = val
 
-    result = EnvironmentSettings(variables = variables)
+    result.variables = variables
 
 proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
     new(result)
@@ -194,16 +197,6 @@ proc fromJsonNode*(node: JsonNode): JsonSettings =
 
     result.node = node
 
-proc fromConfigFile*(filename: string): ConfigSettings =
-    new(result)
-
-    result.config = parsecfg.loadConfig(filename)
-
-proc fromConfig*(config: Config): ConfigSettings =
-    new(result)
-
-    result.config = config
-
 proc newConfiguration*(settings: seq[Settings] = @[]): Configuration =
     new(result)
 
@@ -221,10 +214,10 @@ proc add*(configuration: Configuration, settings: Settings) =
 
     add(configuration.settings, settings)
 
-proc addCommandLineOptions*(configuration: Configuration, options: seq[GetoptResult]) =
+proc addCommandLineOptions*(configuration: Configuration) =
     
     let
-        settings = fromCommandLineOptions(options)
+        settings = fromCommandLineOptions(toSeq(getopt()))
     
     add(configuration, settings)  
 
@@ -281,3 +274,4 @@ proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
 
         if result.kind != JNull:
             break
+
