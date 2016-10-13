@@ -3,6 +3,7 @@ import nre, options, sequtils, strtabs, strutils, uri
 import private/configuration, private/router, private/types
 
 export asynchttpserver, asyncdispatch, httpcore, json, strtabs
+export configuration
 
 const
     DefaultEnvironment = "development"
