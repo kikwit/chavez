@@ -1,4 +1,7 @@
-import algorithm, json, parsecfg, parseopt2, sequtils, streams, tables
+import algorithm, json, parsecfg, os, parseopt2, sequtils, streams, tables, strtabs
+
+const
+    EnvironmentVarHierarchySeparator* = "__"
 
 type
     Configuration* = ref object of RootObj
@@ -11,6 +14,9 @@ type
 
     ConfigSettings* = ref object of Settings
         config*: Config
+
+    EnvironmentSettings* = ref object of Settings
+        variables*: StringTableRef
 
     JsonSettings* = ref object of Settings
         node*: JsonNode
@@ -25,6 +31,10 @@ method `$`*(settings: CommandLineOptionsSettings): string =
 method `$`*(settings: ConfigSettings): string =
 
     result = $settings.config
+
+method `$`*(settings: EnvironmentSettings): string =
+
+    result = $settings.variables
 
 method `$`*(settings: JsonSettings): string =
 
@@ -54,10 +64,24 @@ method get*(settings: ConfigSettings, keys: varargs[string]): JsonNode =
     if len(keys) != 2:
         return
 
-    var val = settings.config.getSectionValue(keys[0], keys[1])
+    var 
+        val = getSectionValue(settings.config, keys[0], keys[1])
 
     if val != "":
         result = newJString(val)
+
+method get*(settings: EnvironmentSettings, keys: varargs[string]): JsonNode =
+
+    result = newJNull() 
+
+    let
+        key = join(keys, sep = EnvironmentVarHierarchySeparator)
+
+    if hasKey(settings.variables, key):
+        val = settings.variables[key]
+    
+        if not isNil(val):
+            result = newJString(val)
 
 method get*(settings: JsonSettings, keys: varargs[string]): JsonNode =
 
@@ -107,6 +131,25 @@ proc fromConfig*(config: Config): ConfigSettings =
     new(result)
 
     result.config = config
+
+proc hasKey*(settings: EnvironmentSettings, key: string): bool =
+
+    result = hasKey(settings.variables, key)
+
+proc value*(settings: EnvironmentSettings, key: string): string =
+
+    if hasKey(settings, key):
+        result = settings.variables[key]
+
+proc fromEnvironmentVariables*(prefix: string = nil, stripPrefix = true): Settings =
+
+    let
+        variables = newStringTable(modeCaseInsensitive)
+
+    for name, val in envPair():
+        variables[name] = val
+
+    result = EnvironmentSettings(variables = variables)
 
 proc getOrDefault*(settings: JsonSettings; key: string): JsonSettings =
     new(result)
@@ -195,6 +238,12 @@ proc addConfigFile*(configuration: Configuration, filename: string) =
 
     let settings = fromConfigFile(filename)
 
+    add(configuration, settings)
+
+proc addEnvironmentVariables*(configuration: Configuration, prefix: string = nil, stripPrefix = true) =
+
+    let settings = fromEnvironmentVariables(prefix, stripPrefix)
+
     add(configuration, settings)  
 
 proc addJsonFile*(configuration: Configuration, filename: string) =
@@ -232,4 +281,3 @@ proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
 
         if result.kind != JNull:
             break
-
