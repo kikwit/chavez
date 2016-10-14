@@ -161,7 +161,7 @@ proc fromEnvironmentVariables*(prefix: string = nil, stripPrefix = true): Enviro
         if shouldStrip:
             key = substr(name, prefixLen)
         else:
-            key = val
+            key = name
 
         variables[key] = val
 
