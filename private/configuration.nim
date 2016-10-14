@@ -99,21 +99,34 @@ method get*(settings: XmlSettings, keys: varargs[string]): JsonNode =
     result = newJNull()
 
     let
-        lenKeys = len(keys)
+        highKeys = len(keys) - 1
     var
+        attrz: StringTableRef
         currentNode = settings.node
 
-    if lenKeys == 1 and hasKey(attrs(settings.node), keys[0]):
-        result = newJString(attr(settings.node, keys[0]))
-        return
-
-    for key in keys:
-        currentNode = child(currentNode, key)
-        
-        if isNil(currentNode) or len(currentNode) > 0:
+    for index, key in keys:
+        if currentNode == nil:
             return
-  
-    result = newJString(currentNode.innerText)
+
+        if index == highKeys:
+            if key == tag(currentNode):
+                case len(currentNode):
+                of 0:
+                    result = newJString("")
+                of 1:
+                    if currentNode[0].kind in [xnCData, xnEntity, xnText]:
+                        result = newJString(currentNode[0].text)
+                else:
+                    break
+            return
+
+        if index == (highKeys - 1):
+            attrz = attrs(currentNode)
+            if not isNil(attrz) and hasKey(attrz, keys[highKeys]):
+                result = newJString(attrz[keys[highKeys]])
+                return
+
+        currentNode = child(currentNode, keys[index + 1])
 
 proc hasKey*(settings: CommandLineOptionsSettings, key: string): bool =
 
