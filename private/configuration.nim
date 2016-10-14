@@ -148,9 +148,22 @@ proc fromEnvironmentVariables*(prefix: string = nil, stripPrefix = true): Enviro
     
     let
         variables = newStringTable(modeCaseInsensitive)
+        shouldFilter = not isNilOrWhiteSpace(prefix)
+        shouldStrip = shouldFilter and stripPrefix 
+        prefixLen = len(prefix)
+    var
+        key: string
 
     for name, val in envPairs():
-        variables[name] = val
+        if shouldFilter and not startsWith(name, prefix):
+            continue
+
+        if shouldStrip:
+            key = substr(name, prefixLen)
+        else:
+            key = val
+
+        variables[key] = val
 
     result.variables = variables
 
