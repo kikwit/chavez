@@ -1,5 +1,6 @@
 import algorithm, json, parsecfg, os, parseopt2
 import sequtils, streams, strutils, strtabs, tables
+import xmlparser, xmltree
 
 const
     EnvironmentVarHierarchySeparator* = "__"
@@ -22,23 +23,25 @@ type
     JsonSettings* = ref object of Settings
         node*: JsonNode
 
+    XmlSettings* = ref object of Settings
+        node*: XmlNode
+
 method `$`*(settings: Settings): string {.base.} =
     result = $settings
 
 method `$`*(settings: CommandLineOptionsSettings): string =
-
     result = $settings.options
 
 method `$`*(settings: ConfigSettings): string =
-
     result = $settings.config
 
 method `$`*(settings: EnvironmentSettings): string =
-
     result = $settings.variables
 
 method `$`*(settings: JsonSettings): string =
+    result = $settings.node
 
+method `$`*(settings: XmlSettings): string =
     result = $settings.node
 
 method get*(settings: Settings, keys: varargs[string]): JsonNode {.base.} =
@@ -91,6 +94,26 @@ method get*(settings: JsonSettings, keys: varargs[string]): JsonNode =
     
     if isNil(result):
         result = newJNull()
+
+method get*(settings: XmlSettings, keys: varargs[string]): JsonNode =
+    result = newJNull()
+
+    let
+        lenKeys = len(keys)
+    var
+        currentNode = settings.node
+
+    if lenKeys == 1 and hasKey(attrs(settings.node), key[0]):
+        result = newJString(attr(settings.node, key[0]))
+        return
+
+    for key in keys:
+        currentNode = child(currentNode, key)
+        
+        if isNil(currentNode) or len(currentNode) > 0:
+            return
+  
+    result = newJString(currentNode.innerText)
 
 proc hasKey*(settings: CommandLineOptionsSettings, key: string): bool =
 
@@ -193,19 +216,38 @@ proc `{}=`*(settings: JsonSettings; keys: varargs[string]; value: JsonSettings) 
 proc fromJsonString*(buffer: string): JsonSettings = 
     new(result)
 
-    result.node = json.parseJson(buffer)
+    result.node = parseJson(buffer)
 
 proc fromJsonStream*(s: Stream; filename: string): JsonSettings = 
     new(result)
 
-    result.node = json.parseJson(s, filename)
+    result.node = parseJson(s, filename)
 
 proc fromJsonFile*(filename: string): JsonSettings =
     new(result)
 
-    result.node = json.parseFile(filename)
+    result.node = parseFile(filename)
 
 proc fromJsonNode*(node: JsonNode): JsonSettings = 
+    new(result)
+
+    result.node = node
+
+proc fromXmlStream*(stream: Stream): XmlSettings = 
+    new(result)
+
+    result.node = parseXml(stream)
+
+proc fromXmlString*(buffer: string): XmlSettings = 
+    
+    result = fromXmlStream(newStringStream(buffer))
+
+proc fromXmlFile*(filename: string): XmlSettings =
+    new(result)
+
+    result.node = loadXml(filename)
+
+proc fromXmlNode*(node: XmlNode): XmlSettings = 
     new(result)
 
     result.node = node
@@ -276,9 +318,32 @@ proc addJsonString*(configuration: Configuration, buffer: string) =
 
     add(configuration, settings)
 
-proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
-    new(result)
+proc addXmlFile*(configuration: Configuration, filename: string) =
 
+    let settings = fromXmlFile(filename)
+
+    add(configuration, settings)    
+
+proc addXmlNode*(configuration: Configuration, node: XmlNode) =
+
+    let settings = fromXmlNode(node)
+
+    add(configuration, settings) 
+
+proc addXmlStream*(configuration: Configuration, stream: Stream) =
+
+    let settings = fromXmlStream(stream)
+
+    add(configuration, settings)
+
+proc addXmlString*(configuration: Configuration, buffer: string) =
+
+    let settings = fromXmlString(buffer)
+
+    add(configuration, settings)
+
+proc get*(configuration: Configuration, keys: varargs[string]): JsonNode =
+    
     result = newJNull()
 
     for settings in reversed(configuration.settings):
