@@ -103,8 +103,8 @@ method get*(settings: XmlSettings, keys: varargs[string]): JsonNode =
     var
         currentNode = settings.node
 
-    if lenKeys == 1 and hasKey(attrs(settings.node), key[0]):
-        result = newJString(attr(settings.node, key[0]))
+    if lenKeys == 1 and hasKey(attrs(settings.node), keys[0]):
+        result = newJString(attr(settings.node, keys[0]))
         return
 
     for key in keys:
