@@ -1,31 +1,19 @@
 import asyncdispatch, asynchttpserver, httpcore, json
 import nre, options, sequtils, strtabs, strutils, uri
-import private/configuration, private/router, private/types
+import private/configuration, private/responses, private/router, private/types
 
 export asynchttpserver, asyncdispatch, httpcore, json, strtabs
-export configuration
+export configuration, responses, types
 
 const
     DefaultEnvironment = "development"
     DefaultPort = 3000
     DefaultAddress = ""
-    HdrContentType = "content-type"
-    HdrLocation = "location"
     
 var 
     defaultSettings: Settings = fromJsonNode(%*{ "environment": DefaultEnvironment, "server": { "port": DefaultPort, "address": DefaultAddress } })
     config: Configuration
     routeTable = newSeq[Route]()
-    
-proc setHeader*(headers: HttpHeaders; name, val: string; replace = false): HttpHeaders = 
-
-    result = headers
-
-    if isNil(result):
-        result = newHttpHeaders()
-
-    if replace or not hasKey(result, name):
-        result[name] = val
 
 proc route*(urlPattern: string, httpMethods: set[HttpMethod], handler: RequestHandler) = 
 
@@ -85,43 +73,6 @@ template trace*(urlPattern: string, context: untyped, body: untyped) =
 
     route(urlPattern, HttpTrace) do (context: Context) -> Future[void]:
         body        
-        
-proc redirect*(context: Context; location: string; code: HttpCode = Http303): Future[void] =
-
-    let 
-        hdrs = setHeader(nil, HdrLocation, location)
-        
-    sendHeaders(context.request, hdrs)    
-    
-proc redirect*(context: Context; url: Uri; code: HttpCode = Http303): Future[void] =
-
-    redirect(context, $url, code)    
-
-proc send*(context: Context; content: string; code: HttpCode = Http200, headers: HttpHeaders = nil): Future[void] =
-
-    let 
-        hdrs = setHeader(headers, HdrContentType, "text/plain")
-        
-    respond(context.request, code, content, hdrs)
-
-proc sendJson*(context: Context; content: string; escape: bool = false; code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
-
-    let 
-        hdrs = setHeader(headers, HdrContentType, "application/json", true)
-    var 
-        s = content
-
-    if escape:
-        s = escapeJson(s)
-
-    send(context, s, code, hdrs)
-
-proc sendJson*(context: Context; node: JsonNode; format = false, code: HttpCode = Http200; headers: HttpHeaders = nil): Future[void] =
-
-    let 
-        content = if format: pretty(node) else: $node
-        
-    sendJson(context = context, content = content, code = code, headers = headers)
 
 proc cb(request: Request) {.async.} =
     
@@ -133,7 +84,8 @@ proc cb(request: Request) {.async.} =
         return
 
     var 
-        context = Context(config: config, request: request, params: routeMatch.params)
+        cookies = types.parseCookies(request)
+        context = Context(config: config, cookies: cookies, request: request, params: routeMatch.params)
         
     await routeMatch.requestHandler(context)    
 
