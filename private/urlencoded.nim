@@ -1,4 +1,4 @@
-import tables, parseUtils, strutils
+import nre, parseUtils, sequtils, strutils, tables, typeinfo, unicode
 
 type
     ValueKind = enum
@@ -31,9 +31,9 @@ proc `[]=`*(urlEncoded: UrlEncoded, key: string, value: UrlEncodedValue) {.borro
 
 proc `[]`*(urlEncoded: UrlEncoded, key: string): UrlEncodedValue =
 
-    result = getOrDefault(TableRef[string, UrlEncodedValue](urlEncoded), key)
+    result = getOrDefault(TableRef[string, UrlEncodedValue](urlEncoded), unicode.toLower(key))
 
-proc `~`*(urlEncoded: UrlEncoded, key: string): UrlEncodedValue =
+proc `->`*(urlEncoded: UrlEncoded, key: string): UrlEncodedValue =
 
     result = urlEncoded[key]
 
@@ -114,12 +114,7 @@ proc getOrDefault*[T, U](urlEncoded: UrlEncoded, keys: varargs[string], convert:
         result = default
     else:
         result = try: convert(val)
-                 except: default
-
-proc `~`*(v: UrlEncodedValue, key: string): UrlEncodedValue =
-
-    if not isNil(v) and v.kind == vkUrlEncoded:
-        result = v.urlEncoded[key]                 
+                 except: default               
 
 proc addUrlEcodedValue(urlEncoded: var UrlEncoded; key, value: string) =
 
@@ -167,7 +162,7 @@ proc parseQuery*(s: string): UrlEncoded =
         inc(index) # skip '&'
 
         if not isNilOrEmpty(key):
-            addUrlEcodedValue(result, key, value)
+            addUrlEcodedValue(result, unicode.toLower(key), value)
 
 converter toString*(v: UrlEncodedValue): string =
 
@@ -199,20 +194,160 @@ template parse(s: string, t: untyped): untyped =
     except:
         discard
 
-converter toFloat*(v: UrlEncodedValue): float = parse(v, Float)
 converter toBiggestInt*(v: UrlEncodedValue): BiggestInt = parse(v, BiggestInt)
 converter toBiggestUInt*(v: UrlEncodedValue): uint64 = parse(v, BiggestUInt)
-converter toInt*(v: UrlEncodedValue): int = parse(v, Int)
-converter toUInt*(v: UrlEncodedValue): uint = parse(v, UInt)
 converter toBool*(v: UrlEncodedValue): bool = parse(v, Bool)
+converter toInt*(v: UrlEncodedValue): int = parse(v, Int)
+converter toFloat*(v: UrlEncodedValue): float = parse(v, Float)
+converter toUInt*(v: UrlEncodedValue): uint = parse(v, UInt)
 
-#[
+proc setValue*(prop: Any, value: string) =
+    case prop.kind
+    of akChar:
+    #[
+        if len(value) > 0:
+            let
+                c = value[0]
+    ]#
+        discard
+    of akString:
+        setString(prop, value)
+    of akInt, akInt64, akInt32, akInt16, akInt8, akBool, akEnum:
+        setBiggestInt(prop, parseBiggestInt(value))
+    of akUInt, akUInt64, akUInt32, akUInt16, akUInt8: 
+        setBiggestUint(prop, parseBiggestUInt(value))    
+    of akFloat, akFloat32, akFloat64, akFloat128:
+        var
+            bf: BiggestFloat
+        discard parseBiggestFloat(value, bf)
+        setBiggestFloat(prop, bf)
+    else:
+        discard
+
+
+proc `->`*(v: UrlEncodedValue, key: string): UrlEncodedValue =
+
+    if not isNil(v) and v.kind == vkUrlEncoded:
+        result = v.urlEncoded[key]  
+
+proc `->`(value: UrlEncodedValue, target: Any) =
+    
+    var
+        v: UrlEncodedValue
+
+    for name, prop in fields(target):
+
+        v = value -> name
+
+        if isNil(v):
+            continue
+     
+        case v.kind
+        of vkUrlEncoded:
+            if prop.kind == akTuple or prop.kind == akObject:
+                v -> prop      
+            continue
+        of vkString:
+            if prop.kind == akSequence:
+                var
+                    sq = @[v.value]
+
+                target[name] = toAny(sq)
+
+            else:
+                setValue(prop, v.value)
+        of vkSeq:
+            if prop.kind == akSequence:
+                target[name] = toAny(v.seq)
+            
+            elif len(v.seq) > 0 and prop.kind in [akBool, akChar, akString, akCString, akInt, akInt8, akInt16, akInt32, akInt64, akFloat, akFloat32, akFloat64, akFloat128, akUInt, akUInt8, akUInt16, akUInt32, akUInt64]:
+                # target[name] = getAnyValue(v.seq[0], prop.kind)
+                discard
+        else:
+            discard
+
+proc `->`*(value: UrlEncodedValue, target: var object) =
+
+    value -> toAny(target)
+
+proc `->`*(value: UrlEncoded, target: var object) =
+
+    for key, val in TableRef[string, UrlEncodedValue](value):
+        for name, prop in fields(toAny(target)):
+            if cmpRunesIgnoreCase(key, name) != 0:
+                continue
+            
+            case prop.kind
+            of akObject, akTuple:
+                val -> prop
+            of akChar, akString, akInt, akInt64, akInt32, akInt16, akInt8, akBool, 
+               akUInt, akUInt64, akUInt32, akUInt16, akUInt8, 
+               akFloat, akFloat32, akFloat64, akFloat128:
+                
+                case val.kind:
+                of vkString:
+                    setValue(prop, val.value)
+                of vkSeq:
+                    if len(val.seq) > 0:
+                        setValue(prop, val.seq[0])
+                else:
+                    discard
+            of akEnum:
+
+                var
+                    queryVal: string
+                    ordinl: int
+
+                case val.kind:
+                of vkString:
+                    queryVal = val.value
+                of vkSeq:
+                    if len(val.seq) > 0:
+                        queryVal = val.seq[0]
+                else:
+                    continue
+                
+                if contains(queryVal, re"^\d+$"):
+                    ordinl = parseInt(queryVal)
+                    let
+                        enumFldName = getEnumField(prop, ordinl)
+                    if enumFldName  == queryVal:
+                        continue              
+                else:
+                    ordinl = getEnumOrdinal(prop, queryVal)
+                    if ordinl == low(int):
+                        continue
+                
+
+                setValue(prop, $ordinl)
+
+            else:
+                discard
+
+
 when isMainModule:
 
-    let
-        urlEncoded = parseQuery("name~first=943&age=98&name~last=Mbonze&gender=M&age=135")
-        v: string = urlEncoded ~ "name" ~ "last"
-            
-    echo "Value: ", v
-]#
+    type
+        Gender = enum
+            F, T, M
+        UserDetails = object
+            first: string
+            last: string
+            age: int
+        User = object
+            age: int
+            gender: Gender
+            details: UserDetails
+    var
+        u: User
+        urlEncoded = parseQuery("details~firSt=zzzuy&AGE=98&details~LaSt=Mbonze&details~AGE=135&gender=1")
+
+    urlEncoded -> u
+    assert u.gender == Gender.T
+    assert u.details.first == "zzzuy"
+    assert u.details.last == "Mbonze"
+    assert u.details.age == 135
+
+    let age: int = urlEncoded -> "age"
+    assert age == 98
 
