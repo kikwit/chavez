@@ -1,5 +1,5 @@
 import asynchttpserver, asyncdispatch, cookies, httpcore, md5, sequtils, strtabs, strutils, times
-import configuration
+import configuration, urlencoded
 
 const
     COOKIE = "Cookie" 
@@ -12,6 +12,7 @@ type
         config*: Configuration
         cookies*: Cookies
         params*: StringTableRef
+        query*: UrlEncoded
         request*: Request                
 
         responseCookies: seq[string]

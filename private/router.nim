@@ -8,7 +8,7 @@ type
         keys*: seq[string]
         httpMethods*: set[HttpMethod]
         routePathNoKeys*: string
-        urlPattern*: string
+        urlPattern*: Regex
 
     RouteMatch* = ref object
         requestHandler*: RequestHandler
@@ -62,7 +62,7 @@ proc parseRoute*(routePath: string, caseSensitive: bool, strict: bool): Route =
             routePathNoKeys = toLowerAscii(routePath)
 
     result.keys = keys
-    result.urlPattern = pattern
+    result.urlPattern = re(pattern)
 
     if not isNilOrWhiteSpace(routePathNoKeys):
         result.routePathNoKeys = routePathNoKeys
@@ -88,7 +88,7 @@ proc findRoute*(request: Request, routeTable: seq[Route], caseSensitive: bool, s
 
         if len(route.keys) > 0:
 
-            match = find(reqPath, re(route.urlPattern))
+            match = find(reqPath, route.urlPattern)
 
             if isNone(match): 
                 continue

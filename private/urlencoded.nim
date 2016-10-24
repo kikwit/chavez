@@ -24,20 +24,20 @@ proc `$`*(value: UrlEncodedValue): string =
 
     result = $value.kind
 
-proc add*(urlEncoded: UrlEncoded, key: string, value: UrlEncodedValue) {.borrow.}
+proc add(urlEncoded: UrlEncoded, key: string, value: UrlEncodedValue) {.borrow.}
 proc hasKey*(urlEncoded: UrlEncoded, key: string): bool {.borrow.}
 proc `$`*(t: UrlEncoded): string {.borrow.}
-proc `[]=`*(urlEncoded: UrlEncoded, key: string, value: UrlEncodedValue) {.borrow.}
+proc `[]=`(urlEncoded: UrlEncoded, key: string, value: UrlEncodedValue) {.borrow.}
 
 proc `[]`*(urlEncoded: UrlEncoded, key: string): UrlEncodedValue =
 
     result = getOrDefault(TableRef[string, UrlEncodedValue](urlEncoded), unicode.toLower(key))
 
-proc `->`*(urlEncoded: UrlEncoded, key: string): UrlEncodedValue =
+proc `->`*(urlEncoded: UrlEncoded, key: static[string]): UrlEncodedValue =
 
     result = urlEncoded[key]
 
-proc add*(urlEncoded: var UrlEncoded; key, value: string) =
+proc add(urlEncoded: var UrlEncoded; key, value: string) =
 
     if not hasKey(urlEncoded, key):
         add(urlEncoded, key, UrlEncodedValue(kind: vkString, value: value))
@@ -54,7 +54,7 @@ proc add*(urlEncoded: var UrlEncoded; key, value: string) =
         else:
             discard
 
-proc get*[T: string|seq[string]|UrlEncoded](urlEncoded: UrlEncoded, keys: varargs[string]): T =
+proc get[T: string|seq[string]|UrlEncoded](urlEncoded: UrlEncoded, keys: varargs[string]): T =
 
     var 
         current = urlEncoded
@@ -91,30 +91,12 @@ proc get*[T: string|seq[string]|UrlEncoded](urlEncoded: UrlEncoded, keys: vararg
         else:
             break
 
-proc getOrDefault*[T: string|seq[string]|UrlEncoded](urlEncoded: UrlEncoded, keys: varargs[string], default: T): T =
-
-    result = get(urlEncoded, keys)
-
-    if isNil(result):
-        result = default
-
-proc get*[T, U](urlEncoded: UrlEncoded, keys: varargs[string], convert: proc (t: T): U): U =
+proc get[T, U](urlEncoded: UrlEncoded, keys: varargs[string], convert: proc (t: T): U): U =
 
     let
         val = get[T](urlEncoded, keys)
 
-    result = convert(val)
-
-proc getOrDefault*[T, U](urlEncoded: UrlEncoded, keys: varargs[string], convert: proc (t: T): U, default: U): U =
-
-    let
-        val = get[T](urlEncoded, keys)
-
-    if isNil(val):
-        result = default
-    else:
-        result = try: convert(val)
-                 except: default               
+    result = convert(val)           
 
 proc addUrlEcodedValue(urlEncoded: var UrlEncoded; key, value: string) =
 
@@ -164,6 +146,16 @@ proc parseQuery*(s: string): UrlEncoded =
         if not isNilOrEmpty(key):
             addUrlEcodedValue(result, unicode.toLower(key), value)
 
+template parse(s: string, t: untyped): untyped =
+
+    if isNil(s):
+        return
+
+    try:
+        result = `parse t`(s)
+    except:
+        discard            
+
 converter toString*(v: UrlEncodedValue): string =
 
     if isNil(v):
@@ -174,7 +166,7 @@ converter toString*(v: UrlEncodedValue): string =
     elif v.kind == vkSeq and len(v.seq) > 0:
         result = v.seq[0]
         
-converter toString*(v: UrlEncodedValue): seq[string] =
+converter toSeqString*(v: UrlEncodedValue): seq[string] =
 
     if isNil(v):
         return
@@ -184,15 +176,13 @@ converter toString*(v: UrlEncodedValue): seq[string] =
     elif v.kind == vkString:
         result = @[v.value]
 
-template parse(s: string, t: untyped): untyped =
 
-    if isNil(s):
-        return
-
-    try:
-        result = `parse t`(s)
-    except:
-        discard
+converter toBiggestInt*(v: UrlEncodedValue): BiggestInt = parse(v, BiggestInt)
+converter toBiggestUInt*(v: UrlEncodedValue): uint64 = parse(v, BiggestUInt)
+converter toBool*(v: UrlEncodedValue): bool = parse(v, Bool)
+converter toInt*(v: UrlEncodedValue): int = parse(v, Int)
+converter toFloat*(v: UrlEncodedValue): float = parse(v, Float)
+converter toUInt*(v: UrlEncodedValue): uint = parse(v, UInt)        
 
 proc getEnumerationOrdinal(prop: Any, value: string): int =
 
@@ -215,13 +205,6 @@ proc getEnumerationOrdinal(prop: Any, value: string): int =
                 
     result = ordinl
 
-converter toBiggestInt*(v: UrlEncodedValue): BiggestInt = parse(v, BiggestInt)
-converter toBiggestUInt*(v: UrlEncodedValue): uint64 = parse(v, BiggestUInt)
-converter toBool*(v: UrlEncodedValue): bool = parse(v, Bool)
-converter toInt*(v: UrlEncodedValue): int = parse(v, Int)
-converter toFloat*(v: UrlEncodedValue): float = parse(v, Float)
-converter toUInt*(v: UrlEncodedValue): uint = parse(v, UInt)
-
 proc castToSeqCString(ss: seq[string]): seq[cstring] =
 
     result = mapIt(ss, cstring(it))
@@ -230,7 +213,7 @@ proc castToSeqChar(ss: seq[string]): seq[char] =
 
     var
         charz = filterIt(ss, len(strip(it)) == 1)
-        result = mapIt(charz, strip(it)[0])
+    result = mapIt(charz, strip(it)[0])
 
 proc castToSeqBool(ss: seq[string]): seq[bool] =
 
@@ -287,6 +270,18 @@ proc castToSeqFloat32(ss: seq[string]): seq[float32] =
 proc castToSeqFloat64(ss: seq[string]): seq[float64] =
 
     result = mapIt(ss, (try: float64(parseFloat(it)) except: 0))
+
+converter toSeqCString*(v: UrlEncodedValue): seq[cstring] = castToSeqCString(v)
+converter toSeqChar*(v: UrlEncodedValue): seq[char] = castToSeqChar(v)
+converter toSeqBool*(v: UrlEncodedValue): seq[bool] = castToSeqBool(v)
+converter toSeqInt*(v: UrlEncodedValue): seq[int] = castToSeqInt(v)
+converter toSeqInt8*(v: UrlEncodedValue): seq[int8] = castToSeqInt8(v)
+converter toSeqInt16*(v: UrlEncodedValue): seq[int16] = castToSeqInt16(v)
+converter toSeqInt32*(v: UrlEncodedValue): seq[int32] = castToSeqInt32(v)
+converter toSeqInt64*(v: UrlEncodedValue): seq[int64] = castToSeqInt64(v)
+converter toSeqFloat*(v: UrlEncodedValue): seq[float] = castToSeqFloat(v)
+converter toSeqFloat32*(v: UrlEncodedValue): seq[float32] = castToSeqFloat32(v)
+converter toSeqFloat64*(v: UrlEncodedValue): seq[float64] = castToSeqFloat64(v)
 
 proc setValue(prop: Any, value: string) =
     case prop.kind
@@ -391,7 +386,7 @@ proc bindSequence(target: Any, name: string, ss: seq[string]) =
     else:
         discard
 
-proc `->`*(v: UrlEncodedValue, key: string): UrlEncodedValue =
+proc `->`*(v: UrlEncodedValue, key: static[string]): UrlEncodedValue =
 
     if not isNil(v) and v.kind == vkUrlEncoded:
         result = v.urlEncoded[key]  
@@ -403,7 +398,8 @@ proc `->`(value: UrlEncodedValue, target: Any) =
 
     for name, prop in fields(target):
 
-        v = value -> name
+        if not isNil(value) and value.kind == vkUrlEncoded:
+            v = value.urlEncoded[name]          
 
         if isNil(v):
             continue

@@ -1,9 +1,9 @@
 import asyncdispatch, asynchttpserver, httpcore, json
 import nre, options, sequtils, strtabs, strutils, uri
-import private/configuration, private/responses, private/router, private/types
+import private/configuration, private/responses, private/router, private/types, private/urlencoded
 
 export asynchttpserver, asyncdispatch, httpcore, json, strtabs
-export configuration, responses, types
+export configuration, responses, types, urlencoded
 
 const
     DefaultEnvironment = "development"
@@ -85,7 +85,8 @@ proc cb(request: Request) {.async.} =
 
     var 
         cookies = types.parseCookies(request)
-        context = Context(config: config, cookies: cookies, request: request, params: routeMatch.params)
+        query = urlencoded.parseQuery(request.url.query)
+        context = Context(config: config, cookies: cookies, request: request, params: routeMatch.params, query: query)
         
     await routeMatch.requestHandler(context)    
 
