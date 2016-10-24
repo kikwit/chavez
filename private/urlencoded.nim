@@ -194,6 +194,27 @@ template parse(s: string, t: untyped): untyped =
     except:
         discard
 
+proc getEnumerationOrdinal(prop: Any, value: string): int =
+
+    if isNil(value):
+        return
+
+    var
+        ordinl: int
+                
+    if contains(value, re"^\d+$"):
+        ordinl = parseInt(value)
+        let
+            enumFldName = getEnumField(prop, ordinl)
+        if enumFldName == value:
+            return           
+    else:
+        ordinl = getEnumOrdinal(prop, value)
+        if ordinl == low(int):
+            return
+                
+    result = ordinl
+
 converter toBiggestInt*(v: UrlEncodedValue): BiggestInt = parse(v, BiggestInt)
 converter toBiggestUInt*(v: UrlEncodedValue): uint64 = parse(v, BiggestUInt)
 converter toBool*(v: UrlEncodedValue): bool = parse(v, Bool)
@@ -201,7 +222,73 @@ converter toInt*(v: UrlEncodedValue): int = parse(v, Int)
 converter toFloat*(v: UrlEncodedValue): float = parse(v, Float)
 converter toUInt*(v: UrlEncodedValue): uint = parse(v, UInt)
 
-proc setValue*(prop: Any, value: string) =
+proc castToSeqCString(ss: seq[string]): seq[cstring] =
+
+    result = mapIt(ss, cstring(it))
+
+proc castToSeqChar(ss: seq[string]): seq[char] =
+
+    var
+        charz = filterIt(ss, len(strip(it)) == 1)
+        result = mapIt(charz, strip(it)[0])
+
+proc castToSeqBool(ss: seq[string]): seq[bool] =
+
+    result = mapIt(ss, (try: parseBool(it) except: false))
+
+proc castToSeqInt(ss: seq[string]): seq[int] =
+
+    result = mapIt(ss, (try: parseInt(it) except: 0))
+
+proc castToSeqInt8(ss: seq[string]): seq[int8] =
+
+    result = mapIt(ss, (try: int8(parseInt(it)) except: 0))
+
+proc castToSeqInt16(ss: seq[string]): seq[int16] =
+
+    result = mapIt(ss, (try: int16(parseInt(it)) except: 0))
+
+proc castToSeqInt32(ss: seq[string]): seq[int32] =
+
+    result = mapIt(ss, (try: int32(parseInt(it)) except: 0))
+
+proc castToSeqInt64(ss: seq[string]): seq[int64] =
+
+    result = mapIt(ss, (try: int64(parseInt(it)) except: 0))
+
+proc castToSeqUInt(ss: seq[string]): seq[uint] =
+
+    result = mapIt(ss, (try: parseUInt(it) except: 0))
+
+proc castToSeqUInt8(ss: seq[string]): seq[uint8] =
+
+    result = mapIt(ss, (try: uint8(parseUInt(it)) except: 0))
+
+proc castToSeqUInt16(ss: seq[string]): seq[uint16] =
+
+    result = mapIt(ss, (try: uint16(parseUInt(it)) except: 0))
+
+proc castToSeqUInt32(ss: seq[string]): seq[uint32] =
+
+    result = mapIt(ss, (try: uint32(parseUInt(it)) except: 0))
+
+proc castToSeqUInt64(ss: seq[string]): seq[uint64] =
+
+    result = mapIt(ss, (try: uint64(parseUInt(it)) except: 0))
+
+proc castToSeqFloat(ss: seq[string]): seq[float] =
+
+    result = mapIt(ss, (try: parseFloat(it) except: 0))
+
+proc castToSeqFloat32(ss: seq[string]): seq[float32] =
+
+    result = mapIt(ss, (try: float32(parseFloat(it)) except: 0))
+
+proc castToSeqFloat64(ss: seq[string]): seq[float64] =
+
+    result = mapIt(ss, (try: float64(parseFloat(it)) except: 0))
+
+proc setValue(prop: Any, value: string) =
     case prop.kind
     of akChar:
     #[
@@ -224,6 +311,85 @@ proc setValue*(prop: Any, value: string) =
     else:
         discard
 
+proc setEnum(prop: Any, value: string) =
+
+    let
+        ordinl = getEnumerationOrdinal(prop, value)
+                
+    setValue(prop, $ordinl)
+
+proc bindSequence(target: Any, name: string, ss: seq[string]) =
+
+    case target[name].baseTypeKind
+    of akString:
+        var sz = ss
+        target[name] = toAny(sz)
+    of akCString:
+        var
+            seqCString = castToSeqCString(ss)
+        target[name] = toAny(seqCString)
+    of akChar:
+        var
+            seqChar = castToSeqChar(ss)
+        target[name] = toAny(seqChar)
+    of akBool:
+        var
+            seqBool = castToSeqBool(ss)
+        target[name] = toAny(seqBool)
+    of akInt:
+        var
+            seqInt = castToSeqInt(ss)
+        target[name] = toAny(seqInt)
+    of akInt8:
+        var
+            seqInt8 = castToSeqInt8(ss)
+        target[name] = toAny(seqInt8)
+    of akInt16:
+        var
+            seqInt16 = castToSeqInt16(ss)
+        target[name] = toAny(seqInt16)
+    of akInt32:
+        var
+            seqInt32 = castToSeqInt32(ss)
+        target[name] = toAny(seqInt32)
+    of akInt64:
+        var
+            seqInt64 = castToSeqInt64(ss)
+        target[name] = toAny(seqInt64)
+    of akUInt:
+        var
+            seqUInt = castToSeqUInt(ss)
+        target[name] = toAny(seqUInt)
+    of akUInt8:
+        var
+            seqUInt8 = castToSeqUInt8(ss)
+        target[name] = toAny(seqUInt8)
+    of akUInt16:
+        var
+            seqUInt16 = castToSeqUInt16(ss)
+        target[name] = toAny(seqUInt16)
+    of akUInt32:
+        var
+            seqUInt32 = castToSeqUInt32(ss)
+        target[name] = toAny(seqUInt32)
+    of akUInt64:
+        var
+            seqUInt64 = castToSeqUInt64(ss)
+        target[name] = toAny(seqUInt64)
+    of akFloat:
+        var
+            seqFloat = castToSeqFloat(ss)
+        target[name] = toAny(seqFloat)
+    of akFloat32:
+        var
+            seqFloat32 = castToSeqFloat32(ss)
+        target[name] = toAny(seqFloat32)
+    of akFloat64, akFloat128:
+        var
+            seqFloat64 = castToSeqFloat64(ss)
+        target[name] = toAny(seqFloat64)
+    else:
+        discard
 
 proc `->`*(v: UrlEncodedValue, key: string): UrlEncodedValue =
 
@@ -258,7 +424,7 @@ proc `->`(value: UrlEncodedValue, target: Any) =
                 setValue(prop, v.value)
         of vkSeq:
             if prop.kind == akSequence:
-                target[name] = toAny(v.seq)
+                 bindSequence(target, name, v.seq)
             
             elif len(v.seq) > 0 and prop.kind in [akBool, akChar, akString, akCString, akInt, akInt8, akInt16, akInt32, akInt64, akFloat, akFloat32, akFloat64, akFloat128, akUInt, akUInt8, akUInt16, akUInt32, akUInt64]:
                 # target[name] = getAnyValue(v.seq[0], prop.kind)
@@ -272,17 +438,27 @@ proc `->`*(value: UrlEncodedValue, target: var object) =
 
 proc `->`*(value: UrlEncoded, target: var object) =
 
+    var
+        tAny = toAny(target)
+
     for key, val in TableRef[string, UrlEncodedValue](value):
-        for name, prop in fields(toAny(target)):
+
+        for name, prop in fields(tAny):
             if cmpRunesIgnoreCase(key, name) != 0:
                 continue
             
             case prop.kind
             of akObject, akTuple:
                 val -> prop
-            of akChar, akString, akInt, akInt64, akInt32, akInt16, akInt8, akBool, 
-               akUInt, akUInt64, akUInt32, akUInt16, akUInt8, 
-               akFloat, akFloat32, akFloat64, akFloat128:
+            of akSequence:
+                case val.kind
+                of vkSeq:
+                    bindSequence(tAny, name, val.seq)
+                of vkString:
+                    bindSequence(tAny, name, @[val.value])
+                else:
+                    discard
+            of akBool, akChar, akString, akCString, akInt, akInt8, akInt16, akInt32, akInt64, akFloat, akFloat32, akFloat64, akFloat128, akUInt, akUInt64, akUInt32, akUInt16, akUInt8:
                 
                 case val.kind:
                 of vkString:
@@ -292,34 +468,10 @@ proc `->`*(value: UrlEncoded, target: var object) =
                         setValue(prop, val.seq[0])
                 else:
                     discard
+
             of akEnum:
 
-                var
-                    queryVal: string
-                    ordinl: int
-
-                case val.kind:
-                of vkString:
-                    queryVal = val.value
-                of vkSeq:
-                    if len(val.seq) > 0:
-                        queryVal = val.seq[0]
-                else:
-                    continue
-                
-                if contains(queryVal, re"^\d+$"):
-                    ordinl = parseInt(queryVal)
-                    let
-                        enumFldName = getEnumField(prop, ordinl)
-                    if enumFldName  == queryVal:
-                        continue              
-                else:
-                    ordinl = getEnumOrdinal(prop, queryVal)
-                    if ordinl == low(int):
-                        continue
-                
-
-                setValue(prop, $ordinl)
+                setEnum(prop, val)
 
             else:
                 discard
@@ -338,16 +490,17 @@ when isMainModule:
             age: int
             gender: Gender
             details: UserDetails
+            perms: seq[int16]
     var
         u: User
-        urlEncoded = parseQuery("details~firSt=zzzuy&AGE=98&details~LaSt=Mbonze&details~AGE=135&gender=1")
+        urlEncoded = parseQuery("perms=991&perms=755&details~firSt=zzzuy&AGE=98&details~LaSt=Mbonze&details~AGE=135&gender=2&perms=435")
 
     urlEncoded -> u
-    assert u.gender == Gender.T
+    assert u.gender == Gender.M
+    assert u.perms == @[991'i16, 755'i16, 435'i16]
     assert u.details.first == "zzzuy"
     assert u.details.last == "Mbonze"
     assert u.details.age == 135
 
     let age: int = urlEncoded -> "age"
     assert age == 98
-
