@@ -109,8 +109,8 @@ proc addUrlEcodedValue(urlEncoded: var UrlEncoded; key, value: string) =
 
         k = ""
 
-        inc(index, parseUntil(key, k, '~', index))
-        inc(index) # skip '~'
+        inc(index, parseUntil(key, k, '.', index))
+        inc(index) # skip '.'
 
         if isNilOrWhiteSpace(k):
             break
@@ -489,7 +489,7 @@ when isMainModule:
             perms: seq[int16]
     var
         u: User
-        urlEncoded = parseQuery("perms=991&perms=755&details~firSt=zzzuy&AGE=98&details~LaSt=Mbonze&details~AGE=135&gender=2&perms=435")
+        urlEncoded = parseQuery("perms=991&perms=755&details.firSt=zzzuy&AGE=98&details.LaSt=Mbonze&details.AGE=135&gender=2&perms=435")
 
     urlEncoded -> u
     assert u.gender == Gender.M
