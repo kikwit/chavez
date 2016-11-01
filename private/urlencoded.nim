@@ -1,8 +1,8 @@
-import nre, parseUtils, sequtils, strutils, tables, typeinfo, unicode
+import nre, parseUtils, sequtils, strscans, strutils, tables, typeinfo, unicode
 
 type
     ValueKind = enum
-        vkString, vkSeq, vkUrlEncoded
+        vkString, vkSeq, vkUrlEncoded, vkSeqUrlEncoded
     UrlEncoded* = distinct TableRef[string, UrlEncodedValue]
     UrlEncodedValue = ref object
         case kind: ValueKind
@@ -11,7 +11,10 @@ type
         of vkSeq:
             seq: seq[string]
         of vkUrlEncoded:
+            index: string
             urlEncoded: UrlEncoded
+        of vkSeqUrlEncoded:
+            values: seq[UrlEncodedValue]
 
 proc newUrlEncoded(): UrlEncoded =
     
@@ -103,7 +106,7 @@ proc addUrlEcodedValue(urlEncoded: var UrlEncoded; key, value: string) =
     var
         current = urlEncoded
         index = 0
-        k: string
+        k, kkey, kindex: string
 
     while index < len(key):
 
@@ -112,16 +115,42 @@ proc addUrlEcodedValue(urlEncoded: var UrlEncoded; key, value: string) =
         inc(index, parseUntil(key, k, '.', index))
         inc(index) # skip '.'
 
-        if isNilOrWhiteSpace(k):
+        if not scanf(k, "$+[$*]", kkey, kindex):
+            kkey = k
+            kindex = ""
+
+        if isNilOrWhiteSpace(kkey):
             break
 
         if index >= len(key):
-            add(current, k, value)
+            add(current, kkey, value)
         else:
-            if not hasKey(current, k) or current[k].kind != vkUrlEncoded:
-                current[k] = UrlEncodedValue(kind: vkUrlEncoded, urlEncoded: newUrlEncoded())
+            if not hasKey(current, kkey) or (current[kkey].kind != vkUrlEncoded and current[kkey].kind != vkSeqUrlEncoded):
 
-            current = current[k].urlEncoded
+                current[kkey] = UrlEncodedValue(kind: vkUrlEncoded, index: kindex, urlEncoded: newUrlEncoded())
+                current = current[kkey].urlEncoded
+
+            elif current[kkey].kind == vkUrlEncoded:
+
+                if cmpRunesIgnoreCase(current[kkey].index, kindex) == 0:
+                    current = current[kkey].urlEncoded
+                else:
+                    let
+                        valz = @[current[kkey], UrlEncodedValue(kind: vkUrlEncoded, index: kindex, urlEncoded: newUrlEncoded())]
+
+                    current[kkey] = UrlEncodedValue(kind: vkSeqUrlEncoded, values: valz)
+                    current = current[kkey].values[high(current[kkey].values)].urlEncoded
+         
+            elif current[kkey].kind == vkSeqUrlEncoded:
+
+                let
+                    found = filterIt(current[kkey].values, cmpRunesIgnoreCase(it.index, kindex) == 0)
+
+                if len(found) > 0:
+                    current = found[0].urlEncoded
+                else:
+                    add(current[kkey].values, UrlEncodedValue(kind: vkUrlEncoded, index: kindex, urlEncoded: newUrlEncoded()))
+                    current = current[kkey].values[high(current[kkey].values)].urlEncoded
 
 
 proc parseQuery*(s: string): UrlEncoded =
@@ -388,7 +417,7 @@ proc bindSequence(target: Any, name: string, ss: seq[string]) =
 
 proc `->`*(v: UrlEncodedValue, key: static[string]): UrlEncodedValue =
 
-    if not isNil(v) and v.kind == vkUrlEncoded:
+    if not isNil(v) and (v.kind == vkUrlEncoded or v.kind == vkSeqUrlEncoded):
         result = v.urlEncoded[key]  
 
 proc `->`(value: UrlEncodedValue, target: Any) =
@@ -423,8 +452,7 @@ proc `->`(value: UrlEncodedValue, target: Any) =
                  bindSequence(target, name, v.seq)
             
             elif len(v.seq) > 0 and prop.kind in [akBool, akChar, akString, akCString, akInt, akInt8, akInt16, akInt32, akInt64, akFloat, akFloat32, akFloat64, akFloat128, akUInt, akUInt8, akUInt16, akUInt32, akUInt64]:
-                # target[name] = getAnyValue(v.seq[0], prop.kind)
-                discard
+                setValue(prop, v.seq[0])
         else:
             discard
 
@@ -472,7 +500,98 @@ proc `->`*(value: UrlEncoded, target: var object) =
             else:
                 discard
 
+proc bindTo*[T: object](value: UrlEncodedValue, target: var seq[T]) =
 
+    var
+        vals: seq[UrlEncodedValue]
+        item: T
+
+    case value.kind
+    of vkUrlEncoded:
+        vals = @[value]
+
+    of vkSeqUrlEncoded:
+        vals = value.values
+
+    else: 
+        return
+
+    for val in value.values:
+
+        item = T()
+
+        val -> item
+ 
+        add(target, item)
+
+proc get*[T: object](value: UrlEncodedValue): seq[T] =
+
+    var
+        result = newSeq[T]()
+
+    bindTo(value, result)
+          
+proc bindTo*[T: object](value: UrlEncoded, target: var seq[T]) =
+
+    if isNil(target):
+        target = newSeq[T]()
+
+    var
+        item: T
+        tAny: Any
+        vals: seq[UrlEncodedValue]
+
+    for key, val in TableRef[string, UrlEncodedValue](value):
+
+
+        if val.kind != vkUrlEncoded and val.kind != vkSeqUrlEncoded:
+            return
+
+        case val.kind
+        of vkUrlEncoded:
+            
+            item = T()
+            tAny = toAny(item)
+
+            for name, prop in fields(tAny):
+
+                if cmpRunesIgnoreCase(key, name) != 0:
+                    continue
+
+                val -> prop
+
+                add(target, item)  
+                break 
+
+        of vkSeqUrlEncoded:
+
+            for v in val.values:
+
+                item = T()
+                tAny = toAny(item)
+
+                for name, prop in fields(tAny):
+
+                    if cmpRunesIgnoreCase(key, name) != 0:
+                        continue
+
+                    v -> prop
+
+                    add(target, item)  
+                    break                     
+
+        else:
+            discard
+
+          
+proc get*[T: object](value: UrlEncoded): seq[T] =
+
+    var
+        result = newSeq[T]()
+
+    bindTo(value, result)
+
+#[
 when isMainModule:
 
     type
@@ -486,17 +605,22 @@ when isMainModule:
             age: int
             gender: Gender
             details: UserDetails
-            perms: seq[int16]
+            perms: seq[int32]
     var
-        u: User
-        urlEncoded = parseQuery("perms=991&perms=755&details.firSt=zzzuy&AGE=98&details.LaSt=Mbonze&details.AGE=135&gender=2&perms=435")
+        u: seq[User]
 
-    urlEncoded -> u
+        urlEncoded = parseQuery("details[a]~firSt=WWWW&details[a]~last=ZZZZZ&details[b]~last=YYYYY")
+
+    bindTo(urlEncoded, u)
+    echo "RRRR ", repr(u)
+
     assert u.gender == Gender.M
-    assert u.perms == @[991'i16, 755'i16, 435'i16]
+    assert u.perms == @[991'i32, 755'i32, 435'i32]
     assert u.details.first == "zzzuy"
     assert u.details.last == "Mbonze"
     assert u.details.age == 135
-
+    
     let age: int = urlEncoded -> "age"
     assert age == 98
+]#
+# echo urlEncoded["details"].values[1].urlEncoded
