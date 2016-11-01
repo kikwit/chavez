@@ -523,13 +523,6 @@ proc bindTo*[T: object](value: UrlEncodedValue, target: var seq[T]) =
         val -> item
  
         add(target, item)
-
-proc get*[T: object](value: UrlEncodedValue): seq[T] =
-
-    var
-        result = newSeq[T]()
-
-    bindTo(value, result)
           
 proc bindTo*[T: object](value: UrlEncoded, target: var seq[T]) =
 
@@ -583,15 +576,7 @@ proc bindTo*[T: object](value: UrlEncoded, target: var seq[T]) =
         else:
             discard
 
-          
-proc get*[T: object](value: UrlEncoded): seq[T] =
-
-    var
-        result = newSeq[T]()
-
-    bindTo(value, result)
-
-#[
+#[]
 when isMainModule:
 
     type
@@ -609,18 +594,8 @@ when isMainModule:
     var
         u: seq[User]
 
-        urlEncoded = parseQuery("details[a]~firSt=WWWW&details[a]~last=ZZZZZ&details[b]~last=YYYYY")
+        urlEncoded = parseQuery("details[a].firSt=WWWW&details[a].last=ZZZZZ&details[b].last=YYYYY")
 
     bindTo(urlEncoded, u)
-    echo "RRRR ", repr(u)
-
-    assert u.gender == Gender.M
-    assert u.perms == @[991'i32, 755'i32, 435'i32]
-    assert u.details.first == "zzzuy"
-    assert u.details.last == "Mbonze"
-    assert u.details.age == 135
-    
-    let age: int = urlEncoded -> "age"
-    assert age == 98
+    echo "RRRR ", repr(u)  
 ]#
-# echo urlEncoded["details"].values[1].urlEncoded
